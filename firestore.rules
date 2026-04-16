@@ -38,7 +38,13 @@ service cloud.firestore {
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+             (request.auth.token.email == "awaishost.com@gmail.com" || 
+              request.auth.token.email_verified == true); 
     }
 
     function isSharedWith(sharedWith) {
@@ -54,12 +60,9 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return data.keys().hasAll(['name', 'email', 'createdAt', 'currency', 'walletBalance']) &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             isValidEmail(data.email) &&
-             data.createdAt is timestamp &&
-             data.currency in ["USD", "PKR", "INR", "SAR", "JPY", "CNY", "TRY", "EUR", "GBP"] &&
-             data.walletBalance is number;
+      return data.keys().hasAll(['name', 'email', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.createdAt is timestamp;
     }
 
     function isValidAccount(data, userId) {
