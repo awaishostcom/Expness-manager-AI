@@ -13,9 +13,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Initialize Firestore
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, (firebaseConfig as any).firestoreDatabaseId || '(default)');
+export const db = initializeFirestore(app, {}, (firebaseConfig as any).firestoreDatabaseId || '(default)');
 
 // Connection test
 async function testConnection() {

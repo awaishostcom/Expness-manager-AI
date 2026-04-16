@@ -101,6 +101,7 @@ export const Transactions: React.FC = () => {
       accountId,
       type,
       notes,
+      userId: user.uid
     };
 
     try {
