@@ -1,0 +1,178 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: /users/{uid}
+// Fields:
+//   - name: string (1-100 chars)
+//   - email: string (valid email format)
+//   - createdAt: timestamp
+//   - currency: string (USD, PKR, etc.)
+//   - walletBalance: number
+//
+// Collection: /users/{uid}/accounts/{accountId}
+// Fields:
+//   - name: string (1-50 chars)
+//   - number: string (optional, 0-50 chars)
+//   - balance: number
+//   - bankName: string (1-50 chars)
+//   - type: string (checking, savings, credit, other)
+//   - userId: string
+//   - sharedWith: list of strings (emails)
+//
+// Collection: /users/{uid}/transactions/{transactionId}
+// ... (similar for other collections)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSharedWith(sharedWith) {
+      return isAuthenticated() && request.auth.token.email in sharedWith;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'createdAt', 'currency', 'walletBalance']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             isValidEmail(data.email) &&
+             data.createdAt is timestamp &&
+             data.currency in ["USD", "PKR", "INR", "SAR", "JPY", "CNY", "TRY", "EUR", "GBP"] &&
+             data.walletBalance is number;
+    }
+
+    function isValidAccount(data, userId) {
+      return data.keys().hasAll(['name', 'balance', 'bankName', 'type', 'userId']) &&
+             data.userId == userId &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 50 &&
+             data.balance is number &&
+             data.bankName is string && data.bankName.size() > 0 && data.bankName.size() <= 50 &&
+             data.type in ['checking', 'savings', 'credit', 'other'];
+    }
+
+    function isValidTransaction(data, userId) {
+      return data.keys().hasAll(['title', 'amount', 'category', 'date', 'accountId', 'type', 'userId']) &&
+             data.userId == userId &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.amount is number && data.amount >= 0 &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 50 &&
+             data.date is timestamp &&
+             data.accountId is string &&
+             data.type in ['income', 'expense'];
+    }
+
+    function isValidLedgerEntry(data, userId) {
+      return data.keys().hasAll(['clientId', 'amount', 'type', 'date', 'description', 'userId']) &&
+             data.userId == userId &&
+             data.clientId is string &&
+             data.amount is number && data.amount >= 0 &&
+             data.type in ['in', 'out'] &&
+             data.date is timestamp &&
+             data.description is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+
+      match /accounts/{accountId} {
+        allow read: if isOwner(userId) || isSharedWith(resource.data.sharedWith);
+        allow create: if isOwner(userId) && isValidAccount(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidAccount(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /transactions/{transactionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidTransaction(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidTransaction(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /bills/{billId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /budgets/{budgetId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /ledger/{entryId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidLedgerEntry(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidLedgerEntry(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /clients/{clientId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /staff/{staffId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /tasks/{taskId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /meetings/{meetingId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    match /walletTransfers/{transferId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.fromUid;
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,206 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "currency": { "type": "string", "enum": ["USD", "PKR", "INR", "SAR", "JPY", "CNY", "TRY", "EUR", "GBP"] },
+        "walletBalance": { "type": "number" }
+      },
+      "required": ["name", "email", "createdAt", "currency", "walletBalance"]
+    },
+    "Account": {
+      "title": "Bank Account",
+      "description": "A bank account linked to a user",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "number": { "type": "string" },
+        "balance": { "type": "number" },
+        "bankName": { "type": "string" },
+        "type": { "type": "string", "enum": ["checking", "savings", "credit", "other"] },
+        "userId": { "type": "string" },
+        "sharedWith": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name", "balance", "bankName", "userId"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "An income or expense record",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "accountId": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "notes": { "type": "string" },
+        "userId": { "type": "string" },
+        "attachmentUrl": { "type": "string" }
+      },
+      "required": ["title", "amount", "category", "date", "accountId", "type", "userId"]
+    },
+    "Bill": {
+      "title": "Bill",
+      "description": "A recurring or one-time bill",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["paid", "unpaid"] },
+        "recurring": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "category": { "type": "string" },
+        "referenceId": { "type": "string" },
+        "frequency": { "type": "string", "enum": ["weekly", "monthly", "yearly"] }
+      },
+      "required": ["title", "amount", "dueDate", "status", "userId", "frequency"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "Monthly budget limit for a category",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string" },
+        "limit": { "type": "number" },
+        "period": { "type": "string", "enum": ["monthly"] },
+        "userId": { "type": "string" }
+      },
+      "required": ["category", "limit", "period", "userId"]
+    },
+    "LedgerEntry": {
+      "title": "Ledger Entry",
+      "description": "A cashbook entry for a client",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["in", "out"] },
+        "date": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" },
+        "attachmentUrl": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["clientId", "amount", "type", "date", "description", "userId"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "A client for business management",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "phone", "email", "userId"]
+    },
+    "Staff": {
+      "title": "Staff",
+      "description": "A staff member for business management",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "cnic": { "type": "string" },
+        "salary": { "type": "number" },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "email", "phone", "cnic", "salary", "userId"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A task for business management",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "clientId": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["title", "description", "dueDate", "status", "userId"]
+    },
+    "Meeting": {
+      "title": "Meeting",
+      "description": "A meeting for business management",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "clientId": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["title", "date", "location", "userId"]
+    },
+    "WalletTransfer": {
+      "title": "Wallet Transfer",
+      "description": "A transfer between user wallets",
+      "type": "object",
+      "properties": {
+        "fromUid": { "type": "string" },
+        "toUid": { "type": "string" },
+        "amount": { "type": "number" },
+        "fee": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fromUid", "toUid", "amount", "fee", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/users/{uid}/accounts/{accountId}": {
+      "schema": "Account",
+      "description": "Bank accounts for a user"
+    },
+    "/users/{uid}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Income and expense transactions"
+    },
+    "/users/{uid}/bills/{billId}": {
+      "schema": "Bill",
+      "description": "Bills tracking"
+    },
+    "/users/{uid}/budgets/{budgetId}": {
+      "schema": "Budget",
+      "description": "Budget limits"
+    },
+    "/users/{uid}/ledger/{entryId}": {
+      "schema": "LedgerEntry",
+      "description": "Cashbook entries"
+    },
+    "/users/{uid}/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Business clients"
+    },
+    "/users/{uid}/staff/{staffId}": {
+      "schema": "Staff",
+      "description": "Business staff"
+    },
+    "/users/{uid}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Business tasks"
+    },
+    "/users/{uid}/meetings/{meetingId}": {
+      "schema": "Meeting",
+      "description": "Business meetings"
+    },
+    "/walletTransfers/{transferId}": {
+      "schema": "WalletTransfer",
+      "description": "Global wallet transfers"
+    }
+  }
+}
