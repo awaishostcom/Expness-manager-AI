@@ -30,8 +30,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/pop
 import { Calendar } from '../../components/ui/calendar';
 import { cn } from '../../lib/utils';
 
+import { formatCurrency } from '../lib/currency';
+
 export const Transactions: React.FC = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -181,8 +183,8 @@ export const Transactions: React.FC = () => {
     return matchesSearch && matchesType;
   });
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  const displayCurrency = (val: number) => {
+    return formatCurrency(val, profile?.currency || 'USD');
   };
 
   return (
@@ -376,7 +378,7 @@ export const Transactions: React.FC = () => {
                       "px-6 py-4 text-[13px] font-bold text-right",
                       t.type === 'income' ? "text-emerald-500" : "text-slate-900"
                     )}>
-                      {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                      {t.type === 'income' ? '+' : '-'}{displayCurrency(t.amount)}
                     </TableCell>
                     <TableCell className="px-6 py-4">
                       <DropdownMenu>

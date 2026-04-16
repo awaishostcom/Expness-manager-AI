@@ -50,8 +50,7 @@ export const Dashboard: React.FC = () => {
 
     const transactionsQuery = query(
       collection(db, 'users', user.uid, 'transactions'),
-      orderBy('date', 'desc'),
-      limit(20)
+      orderBy('date', 'desc')
     );
 
     const accountsQuery = query(collection(db, 'users', user.uid, 'accounts'));

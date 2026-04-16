@@ -18,6 +18,7 @@ const Wallet = lazy(() => import('./pages/Wallet').then(m => ({ default: m.Walle
 const Staff = lazy(() => import('./pages/Staff').then(m => ({ default: m.Staff })));
 const Business = lazy(() => import('./pages/Business').then(m => ({ default: m.Business })));
 const Bills = lazy(() => import('./pages/Bills').then(m => ({ default: m.Bills })));
+const Transactions = lazy(() => import('./pages/Transactions').then(m => ({ default: m.Transactions })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[400px]">
@@ -52,6 +53,7 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard': return <Dashboard />;
+      case 'transactions': return <Transactions />;
       case 'ledger': return <Ledger />;
       case 'wallet': return <Wallet />;
       case 'accounts': return <Accounts />;

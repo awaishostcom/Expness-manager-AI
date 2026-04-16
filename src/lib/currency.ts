@@ -13,14 +13,11 @@ export const CURRENCIES: { code: CurrencyCode; symbol: string; name: string; rat
 ];
 
 export const formatCurrency = (amount: number, currencyCode: CurrencyCode = 'USD') => {
-  const currency = CURRENCIES.find(c => c.code === currencyCode) || CURRENCIES[0];
-  const convertedAmount = amount * currency.rate;
-  
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currencyCode,
     currencyDisplay: 'symbol',
-  }).format(convertedAmount);
+  }).format(amount);
 };
 
 export const convertToUSD = (amount: number, fromCurrency: CurrencyCode) => {

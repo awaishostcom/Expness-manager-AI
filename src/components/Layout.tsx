@@ -16,7 +16,8 @@ import {
   Users,
   Briefcase,
   BookOpen,
-  CreditCard
+  CreditCard,
+  ArrowLeftRight
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { auth } from '../lib/firebase';
@@ -41,6 +42,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageCha
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
     { id: 'ledger', label: 'Cashbook Ledger', icon: BookOpen },
     { id: 'wallet', label: 'My Wallet', icon: CreditCard },
     { id: 'accounts', label: 'Accounts', icon: Wallet },
