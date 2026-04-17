@@ -339,11 +339,9 @@ export const Transactions: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[100px]">Type</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Title</TableHead>
+                <TableHead>Title & Account</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead>Account</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -379,7 +377,7 @@ export const Transactions: React.FC = () => {
                       "px-6 py-4 text-[13px] font-bold text-right",
                       t.type === 'income' ? "text-emerald-500" : "text-slate-900"
                     )}>
-                      {t.type === 'income' ? '+' : '-'}{displayCurrency(t.amount)}
+                      {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount, profile?.currency)}
                     </TableCell>
                     <TableCell className="px-6 py-4">
                       <DropdownMenu>

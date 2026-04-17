@@ -1,20 +1,15 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc } from 'firebase/firestore';
+import { initializeFirestore, doc } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-
-/**
- * IMPORTANT FOR GITHUB PAGES:
- * Make sure to add 'awaishostcom.github.io' to the "Authorized domains" 
- * in your Firebase Console (Authentication -> Settings -> Authorized domains).
- */
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
 
-// Connectivity check stub - no heavy logic to avoid SDK state issues
-console.log("Firebase initialized");
+console.log("Firebase initialized with long polling");
 
 export enum OperationType {
   CREATE = 'create',

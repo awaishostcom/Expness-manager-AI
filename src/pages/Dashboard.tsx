@@ -245,7 +245,7 @@ export const Dashboard: React.FC = () => {
                     <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                     <span className="text-muted-foreground">{item.name}</span>
                   </div>
-                  <span className="font-medium text-foreground">{formatCurrency(item.value)}</span>
+                  <span className="font-medium text-foreground">{formatCurrency(item.value, profile?.currency)}</span>
                 </div>
               ))}
             </div>
@@ -286,7 +286,7 @@ export const Dashboard: React.FC = () => {
                       "text-sm font-bold",
                       t.type === 'income' ? "text-emerald-500" : "text-foreground"
                     )}>
-                      {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                      {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount, profile?.currency)}
                     </div>
                   </div>
                 ))
