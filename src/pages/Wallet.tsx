@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, runTransaction, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, runTransaction, Timestamp, getDocs, or } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { WalletTransfer, UserProfile } from '../types';
@@ -28,7 +28,10 @@ export const Wallet: React.FC = () => {
     if (!user) return;
     const q = query(
       collection(db, 'walletTransfers'),
-      where('fromUid', '==', user.uid),
+      or(
+        where('fromUid', '==', user.uid),
+        where('toUid', '==', user.uid)
+      ),
       orderBy('date', 'desc')
     );
     const unsub = onSnapshot(q, (snapshot) => {

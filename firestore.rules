@@ -5,36 +5,26 @@ service cloud.firestore {
     // --- GLOBAL HELPERS ---
     function isAuthenticated() { return request.auth != null; }
     function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
-    function isDev() { return isAuthenticated() && request.auth.token.email == "awaishost.com@gmail.com"; }
+    function isDev() { 
+      return isAuthenticated() && 
+             (request.auth.token.email == "awaishost.com@gmail.com" || 
+              request.auth.token.email == "ceo+me@awaishost.com"); 
+    }
     
-    function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
-    function isValidId(id) { return id is string && id.size() <= 128; }
-
     // --- DEFAULT DENY ---
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // --- USERS & SUBCOLLECTIONS ---
+    // --- USER DATA & SUBCOLLECTIONS ---
+    // This recursive match captures the user document AND all sub-documents (accounts, transactions, etc.)
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if isOwner(userId) || isDev();
+    }
+    
+    // Explicitly allow reading/writing the user document itself
     match /users/{userId} {
       allow read, write: if isOwner(userId) || isDev();
-      
-      // Standardize subcollection access
-      match /accounts/{id} { allow read, write: if isOwner(userId) || isDev(); }
-      match /transactions/{id} { allow read, write: if isOwner(userId) || isDev(); }
-      match /bills/{id} { allow read, write: if isOwner(userId) || isDev(); }
-      match /budgets/{id} { allow read, write: if isOwner(userId) || isDev(); }
-      match /ledger/{id} { allow read, write: if isOwner(userId) || isDev(); }
-      match /clients/{id} { allow read, write: if isOwner(userId) || isDev(); }
-      match /staff/{id} { allow read, write: if isOwner(userId) || isDev(); }
-      match /tasks/{id} { allow read, write: if isOwner(userId) || isDev(); }
-      match /meetings/{id} { allow read, write: if isOwner(userId) || isDev(); }
-      
-      // Fallback for any other nesting or shared access through recursive match
-      match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId) || isDev();
-      }
     }
     
     // --- WALLET TRANSFERS ---
@@ -43,8 +33,10 @@ service cloud.firestore {
       allow list: if isAuthenticated() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isDev());
       // Allow get
       allow get: if isAuthenticated() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isDev());
-      // Allow creation if the sender is the authenticated user
-      allow create: if isAuthenticated() && (incoming().fromUid == request.auth.uid || isDev());
+      // Allow creation
+      allow create: if isAuthenticated() && (request.resource.data.fromUid == request.auth.uid || isDev());
+      // Allow update/delete for owner/dev
+      allow update, delete: if isAuthenticated() && (resource.data.fromUid == request.auth.uid || isDev());
     }
   }
 }
