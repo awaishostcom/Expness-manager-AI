@@ -22,15 +22,15 @@ import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Plus, ArrowUpRight, Search, Filter, MoreVertical, Pencil, Trash2, Calendar as CalendarIcon } from 'lucide-react';
+import { Plus, ArrowUpRight, Search, Filter, MoreVertical, Pencil, Trash2, Calendar as CalendarIcon, ArrowRight, TrendingUp, Briefcase, Zap, CreditCard, Shapes } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { Calendar } from '../../components/ui/calendar';
 import { cn } from '../../lib/utils';
-
 import { formatCurrency } from '../lib/currency';
+import { motion, AnimatePresence } from 'motion/react';
 
 export const Income: React.FC = () => {
   const { user, profile } = useAuth();
@@ -67,11 +67,11 @@ export const Income: React.FC = () => {
 
     const unsubT = onSnapshot(tQ, (snapshot) => {
       setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'transactions'));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/transactions`));
 
     const unsubA = onSnapshot(aQ, (snapshot) => {
       setAccounts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BankAccount)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'accounts'));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/accounts`));
 
     return () => {
       unsubT();
@@ -113,7 +113,7 @@ export const Income: React.FC = () => {
         const accountRef = doc(db, 'users', user.uid, 'accounts', accountId);
         const accountDoc = await transaction.get(accountRef);
         
-        if (!accountDoc.exists()) throw new Error("Account does not exist!");
+        if (!accountDoc.exists()) throw new Error("Financial node does not exist!");
 
         const currentBalance = accountDoc.data().balance;
         let newBalance = currentBalance;
@@ -130,23 +130,19 @@ export const Income: React.FC = () => {
         transaction.update(accountRef, { balance: newBalance });
       });
 
-      toast.success(editingTransaction ? 'Income updated' : 'Income added');
+      toast.success(editingTransaction ? 'Resource capture adjusted' : 'Capital inflow recorded');
       setIsDialogOpen(false);
       resetForm();
     } catch (error: any) {
       console.error('Save Income Error:', error);
-      try {
-        handleFirestoreError(error, editingTransaction ? OperationType.UPDATE : OperationType.CREATE, `users/${user.uid}/transactions`);
-      } catch (e: any) {
-        toast.error('Failed to save income: ' + e.message);
-      }
+      handleFirestoreError(error, editingTransaction ? OperationType.UPDATE : OperationType.CREATE, `users/${user.uid}/transactions`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (t: Transaction) => {
-    if (!user || !confirm('Are you sure?')) return;
+    if (!user || !confirm('Permanently nullify this capital inflow record?')) return;
     try {
       await runTransaction(db, async (transaction) => {
         const accountRef = doc(db, 'users', user.uid, 'accounts', t.accountId);
@@ -159,9 +155,9 @@ export const Income: React.FC = () => {
         }
         transaction.delete(doc(db, 'users', user.uid, 'transactions', t.id));
       });
-      toast.success('Income deleted');
-    } catch (error) {
-      toast.error('Failed to delete income');
+      toast.success('Record nullified');
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/transactions/${t.id}`);
     }
   };
 
@@ -186,78 +182,85 @@ export const Income: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold text-foreground">Income</h2>
-          <p className="text-sm text-muted-foreground">Track your earnings and revenue</p>
-        </div>
+    <div className="space-y-10 pb-12">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <motion.div
+           initial={{ opacity: 0, x: -20 }}
+           animate={{ opacity: 1, x: 0 }}
+        >
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">Capital Inflow</h2>
+          <p className="text-sm text-slate-500 font-medium">Capture and monitor your revenue streams</p>
+        </motion.div>
+        
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) resetForm();
         }}>
           <DialogTrigger render={
-            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-4 py-2 text-sm font-medium h-auto gap-2">
-              <Plus className="h-4 w-4" />
-              Add Income
+            <Button className="h-12 rounded-2xl font-black px-8 shadow-lg shadow-emerald-500/20 gap-2 bg-emerald-500 hover:bg-emerald-600 text-white uppercase tracking-tight italic">
+              <Plus className="h-5 w-5" /> Record Inflow
             </Button>
           } />
-          <DialogContent className="sm:max-w-[500px] rounded-xl">
-            <DialogHeader>
-              <DialogTitle>{editingTransaction ? 'Edit Income' : 'New Income'}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+          <DialogContent className="sm:max-w-xl rounded-[32px] border-none shadow-2xl p-0 overflow-hidden">
+            <div className="bg-emerald-500 p-8 text-white relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12">
+                 <ArrowUpRight className="h-24 w-24" />
+               </div>
+               <DialogTitle className="text-3xl font-black uppercase italic tracking-tight">Inflow Protocol</DialogTitle>
+               <p className="text-emerald-100/70 text-sm font-bold italic">Register a new capital acquisition event</p>
+            </div>
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input id="amount" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required />
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Absorption Magnitude</Label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-emerald-500">{profile?.currency === 'PKR' ? 'Rs' : '$'}</span>
+                    <Input className="pl-12 h-14 rounded-2xl font-black text-lg bg-slate-50 dark:bg-slate-900 border-none" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                   <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Channel Classification</Label>
                   <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                    <SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-bold">
+                      <SelectValue placeholder="Channel" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    <SelectContent className="rounded-2xl border-none shadow-xl">
+                      {categories.map(c => <SelectItem key={c} value={c} className="rounded-xl">{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Monthly Salary" required />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Source Alias (Title)</Label>
+                <Input className="h-14 rounded-2xl font-black bg-slate-50 dark:bg-slate-900 border-none px-6" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Project Settlement" required />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label>Account</Label>
+                   <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Destination Node</Label>
                   <Select value={accountId} onValueChange={setAccountId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select account" />
+                    <SelectTrigger className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-900 border-none font-bold">
+                      <SelectValue placeholder="Select node..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                    <SelectContent className="rounded-2xl border-none shadow-xl">
+                      {accounts.map(a => <SelectItem key={a.id} value={a.id} className="rounded-xl">{a.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Date</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Temporal Marker</Label>
                   <Popover>
                     <PopoverTrigger render={
                       <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal rounded-lg border-border",
-                          !date && "text-muted-foreground"
-                        )}
+                        variant="ghost"
+                        className="w-full h-14 justify-start text-left font-bold rounded-2xl bg-slate-50 dark:bg-slate-900 border-none"
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP") : <span>Pick a date</span>}
+                        <CalendarIcon className="mr-3 h-5 w-5 text-slate-400" />
+                        {date ? format(date, "PPP") : <span className="text-slate-400 italic">Select temporal point</span>}
                       </Button>
                     } />
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0 border-none shadow-2xl rounded-3xl overflow-hidden" align="start">
                       <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus />
                     </PopoverContent>
                   </Popover>
@@ -265,18 +268,14 @@ export const Income: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Input id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details..." />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Supplemental Data (Notes)</Label>
+                <Input className="h-14 rounded-2xl font-bold bg-slate-50 dark:bg-slate-900 border-none px-6" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Additional context..." />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="attachment">Attachment URL (Receipt/Screenshot)</Label>
-                <Input id="attachment" value={attachmentUrl} onChange={(e) => setAttachmentUrl(e.target.value)} placeholder="https://..." />
-              </div>
-
-              <DialogFooter>
-                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" disabled={loading || !accountId}>
-                  {loading ? 'Processing...' : editingTransaction ? 'Update Income' : 'Save Income'}
+              <DialogFooter className="pt-4">
+                <Button type="submit" className="w-full h-16 rounded-2xl text-lg font-black bg-emerald-500 hover:bg-emerald-600 text-white group" disabled={loading || !accountId}>
+                  {loading ? 'Validating...' : editingTransaction ? 'Calibrate record' : 'Initialize Inflow'}
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </DialogFooter>
             </form>
@@ -284,81 +283,100 @@ export const Income: React.FC = () => {
         </Dialog>
       </div>
 
-      <Card className="border-border shadow-sm overflow-hidden">
-        <CardHeader className="bg-muted/30 border-b border-border">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Card className="border-none shadow-2xl shadow-slate-200/50 dark:shadow-none dark:border dark:border-slate-800 rounded-[40px] overflow-hidden bg-white dark:bg-slate-900">
+        <CardHeader className="p-8 pb-4">
+          <div className="relative flex-1 max-w-md group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-primary transition-colors" />
             <Input 
-              placeholder="Search income..." 
-              className="pl-9 bg-card"
+              placeholder="Filter capital inflow logs..." 
+              className="pl-12 h-14 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold placeholder:italic"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Title</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTransactions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground italic">
-                    No income records found
-                  </TableCell>
+           <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-none">
+                  <TableHead className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Financial Acquisition</TableHead>
+                  <TableHead className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Classification</TableHead>
+                  <TableHead className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Temporal Stamp</TableHead>
+                  <TableHead className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-right text-slate-400 italic">Valuation</TableHead>
+                  <TableHead className="px-8 py-6 w-[80px]"></TableHead>
                 </TableRow>
-              ) : (
-                filteredTransactions.map((t) => (
-                  <TableRow key={t.id} className="hover:bg-muted/50 border-border group">
-                    <TableCell className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-foreground">{t.title}</span>
-                        <span className="text-[11px] text-muted-foreground">{accounts.find(a => a.id === t.accountId)?.name || 'Unknown'}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-6 py-4">
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-semibold uppercase tracking-tight">
-                        {t.category}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-sm text-muted-foreground">
-                      {format(t.date.toDate(), 'MMM d, yyyy')}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-sm font-bold text-right text-emerald-600">
-                      +{displayCurrency(t.amount)}
-                    </TableCell>
-                    <TableCell className="px-6 py-4">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger render={
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        } />
-                        <DropdownMenuContent align="end" className="rounded-lg border-border">
-                          <DropdownMenuItem className="text-xs font-medium" onClick={() => handleEdit(t)}>
-                            <Pencil className="mr-2 h-3 w-3" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="text-xs font-medium text-destructive focus:text-destructive"
-                            onClick={() => handleDelete(t)}
-                          >
-                            <Trash2 className="mr-2 h-3 w-3" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                <AnimatePresence mode="popLayout">
+                  {filteredTransactions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-24 text-center">
+                        <Shapes className="mx-auto h-16 w-16 text-slate-100 dark:text-slate-800 mb-6" />
+                        <p className="text-slate-400 font-black uppercase italic tracking-widest px-8">No matching capital inflow records found within the current scan range.</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredTransactions.map((t, index) => (
+                      <motion.tr 
+                        key={t.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b border-slate-50 dark:border-slate-800 transition-colors last:border-none"
+                      >
+                        <TableCell className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-100 dark:border-emerald-500/20 group-hover:rotate-6 transition-transform">
+                               <ArrowUpRight className="h-6 w-6" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-lg font-black text-slate-900 dark:text-white uppercase italic tracking-tight">{t.title}</span>
+                              <div className="flex items-center gap-2">
+                                <CreditCard className="h-3 w-3 text-slate-400" />
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{accounts.find(a => a.id === t.accountId)?.name || 'Unknown Node'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-8 py-6">
+                          <span className="text-[10px] px-3 py-1.5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-black font-black uppercase tracking-widest italic translate-y-1 inline-block">
+                            {t.category}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-8 py-6 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                          {format(t.date.toDate(), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell className="px-8 py-6 text-2xl font-black text-right text-emerald-500 tabular-nums tracking-tighter italic">
+                          +{displayCurrency(t.amount)}
+                        </TableCell>
+                        <TableCell className="px-8 py-6">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger render={
+                              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-white dark:hover:bg-slate-900 shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                                <MoreVertical className="h-5 w-5 text-slate-400" />
+                              </Button>
+                            } />
+                            <DropdownMenuContent align="end" className="rounded-2xl shadow-xl w-44 p-2 border-none">
+                              <DropdownMenuItem className="rounded-xl px-4 py-2 font-bold text-xs gap-3" onClick={() => handleEdit(t)}>
+                                <Pencil className="h-4 w-4" /> Recalibrate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="rounded-xl px-4 py-2 font-bold text-xs gap-3 text-rose-500 focus:text-rose-500 focus:bg-rose-50"
+                                onClick={() => handleDelete(t)}
+                              >
+                                <Trash2 className="h-4 w-4" /> Nullify
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </motion.tr>
+                    ))
+                  )}
+                </AnimatePresence>
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

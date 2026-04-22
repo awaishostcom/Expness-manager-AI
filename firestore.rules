@@ -3,40 +3,80 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // --- GLOBAL HELPERS ---
-    function isAuthenticated() { return request.auth != null; }
-    function isOwner(userId) { return isAuthenticated() && request.auth.uid == userId; }
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
     function isDev() { 
-      return isAuthenticated() && 
+      return isSignedIn() && 
              (request.auth.token.email == "awaishost.com@gmail.com" || 
               request.auth.token.email == "ceo+me@awaishost.com"); 
     }
     
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128; }
+
     // --- DEFAULT DENY ---
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // --- USER DATA & SUBCOLLECTIONS ---
-    // This recursive match captures the user document AND all sub-documents (accounts, transactions, etc.)
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if isOwner(userId) || isDev();
+    // --- VALIDATION HELPERS ---
+    function isValidBill(data) {
+      return data.title is string && data.title.size() <= 200 &&
+             data.amount is number && data.amount >= 0 &&
+             data.status in ['paid', 'unpaid'] &&
+             data.userId is string &&
+             data.frequency in ['weekly', 'monthly', 'yearly'];
     }
-    
-    // Explicitly allow reading/writing the user document itself
-    match /users/{userId} {
-      allow read, write: if isOwner(userId) || isDev();
+
+    function isValidTransaction(data) {
+      return data.title is string && data.title.size() <= 200 &&
+             data.amount is number && data.amount >= 0 &&
+             data.type in ['income', 'expense'] &&
+             data.userId is string;
+    }
+
+    // --- USERS & SUBCOLLECTIONS ---
+    match /users/{uid} {
+      allow read, write: if isOwner(uid) || isDev();
+      
+      match /accounts/{id} {
+        allow read, write: if isOwner(uid) || isDev();
+      }
+      
+      match /transactions/{id} {
+        allow read: if isOwner(uid) || isDev();
+        allow create: if (isOwner(uid) || isDev()) && isValidTransaction(incoming());
+        allow update: if (isOwner(uid) || isDev()) && isValidTransaction(incoming());
+        allow delete: if isOwner(uid) || isDev();
+      }
+      
+      match /bills/{id} {
+        allow read: if isOwner(uid) || isDev();
+        allow create: if (isOwner(uid) || isDev()) && isValidBill(incoming());
+        allow update: if (isOwner(uid) || isDev()) && isValidBill(incoming());
+        allow delete: if isOwner(uid) || isDev();
+      }
+      
+      match /budgets/{id} { allow read, write: if isOwner(uid) || isDev(); }
+      match /ledger/{id} { allow read, write: if isOwner(uid) || isDev(); }
+      match /clients/{id} { allow read, write: if isOwner(uid) || isDev(); }
+      match /staff/{id} { allow read, write: if isOwner(uid) || isDev(); }
+      match /tasks/{id} { allow read, write: if isOwner(uid) || isDev(); }
+      match /meetings/{id} { allow read, write: if isOwner(uid) || isDev(); }
+      
+      // Safety catch-all for userId matching
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(uid) || isDev();
+      }
     }
     
     // --- WALLET TRANSFERS ---
     match /walletTransfers/{transferId} {
-      // Allow list if the user is either the sender or recipient
-      allow list: if isAuthenticated() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isDev());
-      // Allow get
-      allow get: if isAuthenticated() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isDev());
-      // Allow creation
-      allow create: if isAuthenticated() && (request.resource.data.fromUid == request.auth.uid || isDev());
-      // Allow update/delete for owner/dev
-      allow update, delete: if isAuthenticated() && (resource.data.fromUid == request.auth.uid || isDev());
+      allow list: if isSignedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isDev());
+      allow get: if isSignedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isDev());
+      allow create: if isSignedIn() && (incoming().fromUid == request.auth.uid || isDev());
+      allow update, delete: if isDev();
     }
   }
 }

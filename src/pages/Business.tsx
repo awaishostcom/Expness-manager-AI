@@ -9,10 +9,11 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Plus, CheckCircle2, Circle, Calendar, MapPin, User, Clock, MoreVertical, Trash2 } from 'lucide-react';
+import { Plus, CheckCircle2, Circle, Calendar, MapPin, User, Clock, MoreVertical, Trash2, Briefcase, Zap, Target, Activity, ArrowRight, Shapes } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
 
 export const Business: React.FC = () => {
   const { user } = useAuth();
@@ -59,11 +60,11 @@ export const Business: React.FC = () => {
         clientId: taskClient || null,
         userId: user.uid
       });
-      toast.success('Task added');
+      toast.success('Strategy task initialized');
       setTaskTitle('');
       setTaskDesc('');
-    } catch (error) {
-      toast.error('Failed to add task');
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/tasks`);
     } finally {
       setLoading(false);
     }
@@ -81,11 +82,11 @@ export const Business: React.FC = () => {
         clientId: meetingClient || null,
         userId: user.uid
       });
-      toast.success('Meeting scheduled');
+      toast.success('Briefing scheduled');
       setMeetingTitle('');
       setMeetingLocation('');
-    } catch (error) {
-      toast.error('Failed to schedule meeting');
+    } catch (error: any) {
+       handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/meetings`);
     } finally {
       setLoading(false);
     }
@@ -94,156 +95,269 @@ export const Business: React.FC = () => {
   const toggleTask = async (task: Task) => {
     if (!user) return;
     const newStatus = task.status === 'pending' ? 'completed' : 'pending';
-    await updateDoc(doc(db, 'users', user.uid, 'tasks', task.id), { status: newStatus });
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'tasks', task.id), { status: newStatus });
+    } catch (error: any) {
+       handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}/tasks/${task.id}`);
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    if (!user || !confirm('Permanently nullify this strategy task?')) return;
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'tasks', id));
+      toast.success('Task nullified');
+    } catch (error: any) {
+       handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/tasks/${id}`);
+    }
+  };
+
+  const deleteMeeting = async (id: string) => {
+    if (!user || !confirm('Permanently cancel this briefing session?')) return;
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'meetings', id));
+      toast.success('Meeting canceled');
+    } catch (error: any) {
+       handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/meetings/${id}`);
+    }
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Business Manager</h2>
+    <div className="space-y-10 pb-12">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <motion.div
+           initial={{ opacity: 0, x: -20 }}
+           animate={{ opacity: 1, x: 0 }}
+        >
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase italic">Operations Control</h2>
+          <p className="text-sm text-slate-500 font-medium">Strategic coordination and stakeholder synchronization</p>
+        </motion.div>
       </div>
 
       <Tabs defaultValue="tasks" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="meetings">Meetings</TabsTrigger>
+        <TabsList className="bg-slate-100 dark:bg-slate-900 p-1.5 rounded-[20px] h-14 w-full max-w-[440px] mb-10 overflow-hidden">
+          <TabsTrigger value="tasks" className="rounded-2xl h-full font-black uppercase italic tracking-widest text-[11px] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg transition-all">Strategy Tasks</TabsTrigger>
+          <TabsTrigger value="meetings" className="rounded-2xl h-full font-black uppercase italic tracking-widest text-[11px] data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-lg transition-all">Briefing sessions</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="tasks" className="space-y-6 mt-6">
+        <TabsContent value="tasks" className="space-y-8 outline-none">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Pending Tasks</h3>
+            <h3 className="text-xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Active Objectives</h3>
             <Dialog>
               <DialogTrigger render={
-                <Button size="sm" className="gap-2"><Plus className="h-4 w-4" /> New Task</Button>
+                <Button className="h-10 rounded-xl font-black px-6 gap-2 bg-slate-900 text-white dark:bg-white dark:text-black uppercase tracking-tight italic shadow-xl">
+                  <Plus className="h-4 w-4" /> Initialize Objective
+                </Button>
               } />
-              <DialogContent>
-                <DialogHeader><DialogTitle>Add New Task</DialogTitle></DialogHeader>
-                <form onSubmit={handleAddTask} className="space-y-4">
+              <DialogContent className="rounded-[32px] border-none shadow-2xl p-0 overflow-hidden sm:max-w-xl">
+                <div className="bg-slate-900 p-8 text-white relative overflow-hidden">
+                   <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12">
+                     <Target className="h-24 w-24" />
+                   </div>
+                   <DialogTitle className="text-2xl font-black uppercase italic tracking-tight">Objective Protocol</DialogTitle>
+                   <p className="text-slate-400 text-sm font-bold italic uppercase tracking-widest">Deploy a new operational target</p>
+                </div>
+                <form onSubmit={handleAddTask} className="p-8 space-y-6">
                   <div className="space-y-2">
-                    <Label>Title</Label>
-                    <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} required />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Objective Lead (Title)</Label>
+                    <Input className="h-14 rounded-2xl font-black bg-slate-50 dark:bg-slate-950 border-none px-6" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="Project Alpha Execution" required />
                   </div>
                   <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Input value={taskDesc} onChange={e => setTaskDesc(e.target.value)} required />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Operational Depth (Description)</Label>
+                    <Input className="h-14 rounded-2xl font-bold bg-slate-50 dark:bg-slate-950 border-none px-6" value={taskDesc} onChange={e => setTaskDesc(e.target.value)} placeholder="High-level mission scope..." required />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label>Due Date</Label>
-                      <Input type="datetime-local" value={taskDate} onChange={e => setTaskDate(e.target.value)} required />
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Deadline Marker</Label>
+                      <Input className="h-14 rounded-2xl font-bold bg-slate-50 dark:bg-slate-950 border-none px-6" type="datetime-local" value={taskDate} onChange={e => setTaskDate(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
-                      <Label>Client (Optional)</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Allied Entity (Client)</Label>
                       <select 
-                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                        className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold outline-none"
                         value={taskClient}
                         onChange={e => setTaskClient(e.target.value)}
                       >
-                        <option value="">None</option>
+                        <option value="">Detached</option>
                         {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full" disabled={loading}>Save Task</Button>
+                   <DialogFooter className="pt-4">
+                    <Button type="submit" className="w-full h-16 rounded-2xl text-lg font-black bg-primary hover:bg-primary/90 text-white group" disabled={loading}>
+                      Save Objective
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
           </div>
 
-          <div className="grid grid-cols-1 gap-3">
-            {tasks.map(task => (
-              <Card key={task.id} className={cn("transition-opacity", task.status === 'completed' && "opacity-50")}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <button onClick={() => toggleTask(task)} className="text-primary">
-                      {task.status === 'completed' ? <CheckCircle2 className="h-6 w-6" /> : <Circle className="h-6 w-6" />}
-                    </button>
-                    <div>
-                      <p className={cn("font-bold", task.status === 'completed' && "line-through")}>{task.title}</p>
-                      <p className="text-xs text-muted-foreground">{task.description}</p>
-                      <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {format(task.dueDate.toDate(), 'PPP p')}</span>
-                        {task.clientId && <span className="flex items-center gap-1"><User className="h-3 w-3" /> {clients.find(c => c.id === task.clientId)?.name}</span>}
+          <div className="grid grid-cols-1 gap-4">
+            <AnimatePresence mode="popLayout">
+              {tasks.length === 0 ? (
+                <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-[40px] border dark:border-slate-800 border-dashed">
+                   <p className="text-slate-400 font-black uppercase italic tracking-widest">No active objectives in current cycle.</p>
+                </div>
+              ) : tasks.map((task, index) => (
+                <motion.div 
+                  key={task.id}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Card className={cn(
+                    "border-none shadow-xl shadow-slate-100/50 dark:shadow-none dark:border dark:border-slate-800 rounded-3xl overflow-hidden group transition-all",
+                    task.status === 'completed' ? "opacity-60 bg-slate-50 dark:bg-slate-950" : "bg-white dark:bg-slate-900 hover:shadow-2xl hover:shadow-primary/5"
+                  )}>
+                    <CardContent className="p-6 flex items-center justify-between">
+                      <div className="flex items-center gap-6">
+                        <motion.button 
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => toggleTask(task)} 
+                          className={cn(
+                            "h-12 w-12 rounded-2xl flex items-center justify-center transition-all",
+                            task.status === 'completed' ? "bg-emerald-500 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-primary"
+                          )}
+                        >
+                          {task.status === 'completed' ? <CheckCircle2 className="h-6 w-6" /> : <Circle className="h-6 w-6" />}
+                        </motion.button>
+                        <div>
+                          <p className={cn("text-xl font-black uppercase tracking-tight italic", task.status === 'completed' ? "text-slate-400 line-through" : "text-slate-900 dark:text-white")}>{task.title}</p>
+                          <p className="text-xs font-bold text-slate-500 line-clamp-1">{task.description}</p>
+                          <div className="flex items-center gap-4 mt-3">
+                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                               <Clock className="h-3 w-3" />
+                               {format(task.dueDate.toDate(), 'PPP p')}
+                            </div>
+                            {task.clientId && (
+                               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary">
+                                 <User className="h-3 w-3" />
+                                 {clients.find(c => c.id === task.clientId)?.name}
+                               </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-500/10 text-slate-300 hover:text-rose-500 transition-colors" onClick={() => deleteTask(task.id)}>
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </TabsContent>
 
-        <TabsContent value="meetings" className="space-y-6 mt-6">
+        <TabsContent value="meetings" className="space-y-8 outline-none">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Upcoming Meetings</h3>
+            <h3 className="text-xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white">Upcoming Briefings</h3>
             <Dialog>
               <DialogTrigger render={
-              <Button size="sm" className="gap-2"><Plus className="h-4 w-4" /> Schedule</Button>
+              <Button className="h-10 rounded-xl font-black px-6 gap-2 bg-emerald-600 text-white uppercase tracking-tight italic shadow-xl shadow-emerald-500/20">
+                <Plus className="h-4 w-4" /> Schedule Briefing
+              </Button>
             } />
-              <DialogContent>
-                <DialogHeader><DialogTitle>Schedule Meeting</DialogTitle></DialogHeader>
-                <form onSubmit={handleAddMeeting} className="space-y-4">
+              <DialogContent className="rounded-[32px] border-none shadow-2xl p-0 overflow-hidden sm:max-w-xl">
+                 <div className="bg-emerald-600 p-8 text-white relative overflow-hidden">
+                   <div className="absolute top-0 right-0 p-4 opacity-10 rotate-12">
+                     <Activity className="h-24 w-24" />
+                   </div>
+                   <DialogTitle className="text-2xl font-black uppercase italic tracking-tight">Briefing Protocol</DialogTitle>
+                   <p className="text-emerald-100/70 text-sm font-bold italic uppercase tracking-widest">Coordinate a new stakeholder synchronization</p>
+                </div>
+                <form onSubmit={handleAddMeeting} className="p-8 space-y-6">
                   <div className="space-y-2">
-                    <Label>Meeting Title</Label>
-                    <Input value={meetingTitle} onChange={e => setMeetingTitle(e.target.value)} required />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Session Alias (Title)</Label>
+                    <Input className="h-14 rounded-2xl font-black bg-slate-50 dark:bg-slate-950 border-none px-6" value={meetingTitle} onChange={e => setMeetingTitle(e.target.value)} placeholder="Quarterly Audit Sync" required />
                   </div>
                   <div className="space-y-2">
-                    <Label>Location / Link</Label>
-                    <Input value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} required />
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Deployment Zone (Location/Link)</Label>
+                    <Input className="h-14 rounded-2xl font-bold bg-slate-50 dark:bg-slate-950 border-none px-6" value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} placeholder="Nexus Meeting Room or Zoom URL" required />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label>Date & Time</Label>
-                      <Input type="datetime-local" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} required />
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Temporal Zero</Label>
+                      <Input className="h-14 rounded-2xl font-bold bg-slate-50 dark:bg-slate-950 border-none px-6" type="datetime-local" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
-                      <Label>Client</Label>
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Primary Liaison (Client)</Label>
                       <select 
-                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                        className="w-full h-14 px-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border-none font-bold outline-none"
                         value={meetingClient}
                         onChange={e => setMeetingClient(e.target.value)}
                       >
-                        <option value="">None</option>
+                        <option value="">Detached</option>
                         {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full" disabled={loading}>Schedule Meeting</Button>
+                   <DialogFooter className="pt-4">
+                    <Button type="submit" className="w-full h-16 rounded-2xl text-lg font-black bg-emerald-600 hover:bg-emerald-700 text-white group" disabled={loading}>
+                      Deploy Session
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {meetings.map(meeting => (
-              <Card key={meeting.id}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                      <Calendar className="h-6 w-6" />
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="h-4 w-4" /></Button>
-                  </div>
-                  <div className="mt-4">
-                    <h4 className="font-bold text-lg">{meeting.title}</h4>
-                    <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                      <Clock className="h-3.5 w-3.5" /> {format(meeting.date.toDate(), 'PPP p')}
-                    </p>
-                    <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                      <MapPin className="h-3.5 w-3.5" /> {meeting.location}
-                    </p>
-                    {meeting.clientId && (
-                      <div className="mt-4 pt-4 border-t border-border flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">
-                          {clients.find(c => c.id === meeting.clientId)?.name.charAt(0)}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <AnimatePresence mode="popLayout">
+              {meetings.length === 0 ? (
+                <div className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-[40px] border dark:border-slate-800 border-dashed">
+                   <p className="text-slate-400 font-black uppercase italic tracking-widest">No briefs scheduled for current window.</p>
+                </div>
+              ) : meetings.map((meeting, index) => (
+                <motion.div 
+                   key={meeting.id}
+                   initial={{ opacity: 0, scale: 0.95 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   transition={{ delay: index * 0.1 }}
+                >
+                  <Card className="border-none shadow-xl shadow-slate-100/50 dark:shadow-none dark:border dark:border-slate-800 rounded-[32px] bg-white dark:bg-slate-900 group hover:shadow-2xl hover:shadow-emerald-500/5 transition-all overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full -translate-y-16 translate-x-16" />
+                    <CardContent className="p-8">
+                      <div className="flex items-start justify-between">
+                        <div className="h-16 w-16 rounded-[24px] bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 border border-emerald-100 dark:border-emerald-500/20 group-hover:rotate-6 transition-transform">
+                          <Calendar className="h-8 w-8" />
                         </div>
-                        <span className="text-xs font-medium">{clients.find(c => c.id === meeting.clientId)?.name}</span>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-500/10 text-slate-300 hover:text-rose-500" onClick={() => deleteMeeting(meeting.id)}>
+                          <Trash2 className="h-5 w-5" />
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      <div className="mt-8">
+                        <h4 className="text-2xl font-black uppercase italic tracking-tight text-slate-900 dark:text-white leading-tight group-hover:text-emerald-600 transition-colors">{meeting.title}</h4>
+                        <div className="space-y-2 mt-4">
+                           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-3 italic">
+                            <Clock className="h-4 w-4 text-emerald-500" /> {format(meeting.date.toDate(), 'PPP p')}
+                          </p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-3 italic">
+                            <MapPin className="h-4 w-4 text-rose-500" /> {meeting.location}
+                          </p>
+                        </div>
+                        
+                        {meeting.clientId && (
+                          <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800 flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-black flex items-center justify-center text-xs font-black italic">
+                              {clients.find(c => c.id === meeting.clientId)?.name.charAt(0)}
+                            </div>
+                            <div>
+                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Allied Entity</p>
+                               <span className="text-xs font-black text-slate-900 dark:text-white uppercase italic">{clients.find(c => c.id === meeting.clientId)?.name}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </TabsContent>
       </Tabs>

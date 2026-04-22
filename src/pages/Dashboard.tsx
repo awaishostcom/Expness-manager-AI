@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Transaction, BankAccount } from '../types';
+import { Transaction, BankAccount, Bill } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { 
   BarChart, 
@@ -22,7 +22,9 @@ import {
   ResponsiveContainer, 
   Cell,
   PieChart as RePieChart,
-  Pie
+  Pie,
+  AreaChart,
+  Area
 } from 'recharts';
 import { 
   TrendingUp, 
@@ -32,17 +34,23 @@ import {
   ArrowDownLeft,
   Calendar,
   ArrowLeftRight,
-  CreditCard
+  CreditCard,
+  Zap,
+  Activity,
+  DollarSign,
+  Clock,
+  ChevronRight
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, eachDayOfInterval, startOfDay } from 'date-fns';
 import { cn } from '../../lib/utils';
-
+import { motion } from 'motion/react';
 import { formatCurrency } from '../lib/currency';
 
 export const Dashboard: React.FC = () => {
   const { user, profile } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,19 +62,26 @@ export const Dashboard: React.FC = () => {
     );
 
     const accountsQuery = query(collection(db, 'users', user.uid, 'accounts'));
+    
+    const billsQuery = query(collection(db, 'users', user.uid, 'bills'), where('status', '==', 'unpaid'));
 
     const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
       setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction)));
       setLoading(false);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'transactions'));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, `users/${user?.uid}/transactions`));
 
     const unsubAccounts = onSnapshot(accountsQuery, (snapshot) => {
       setAccounts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BankAccount)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'accounts'));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, `users/${user?.uid}/accounts`));
+
+    const unsubBills = onSnapshot(billsQuery, (snapshot) => {
+      setBills(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Bill)));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, `users/${user?.uid}/bills`));
 
     return () => {
       unsubTransactions();
       unsubAccounts();
+      unsubBills();
     };
   }, [user]);
 
@@ -84,12 +99,24 @@ export const Dashboard: React.FC = () => {
     .filter(t => t.type === 'expense' && t.date.toDate() >= monthStart && t.date.toDate() <= monthEnd)
     .reduce((acc, curr) => acc + curr.amount, 0);
 
-  const barChartData = [
-    { name: 'Income', value: monthlyIncome },
-    { name: 'Expenses', value: monthlyExpense },
-  ];
+  // Area chart data for last 7 days
+  const last7Days = eachDayOfInterval({
+    start: subMonths(now, 1),
+    end: now
+  }).slice(-7);
 
-  // Category breakdown for Pie Chart
+  const areaData = last7Days.map(date => {
+    const dayStart = startOfDay(date);
+    const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+    const dayExpense = transactions
+      .filter(t => t.type === 'expense' && t.date.toDate() >= dayStart && t.date.toDate() <= dayEnd)
+      .reduce((acc, curr) => acc + curr.amount, 0);
+    return {
+      name: format(date, 'MMM d'),
+      value: dayExpense
+    };
+  });
+
   const categoryDataMap = transactions
     .filter(t => t.type === 'expense')
     .reduce((acc, curr) => {
@@ -108,193 +135,284 @@ export const Dashboard: React.FC = () => {
     return formatCurrency(val, profile?.currency || 'USD');
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
+
   return (
-    <div className="space-y-8 pb-8">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <Card className="bg-card border-border shadow-sm rounded-xl">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Total Balance</p>
-              <Wallet className="h-4 w-4 text-primary opacity-50" />
-            </div>
-            <div className="text-2xl font-bold text-foreground">{displayCurrency(totalBalance)}</div>
-            <p className="text-[11px] text-emerald-500 font-medium mt-1 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              +2.4% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border shadow-sm rounded-xl">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Wallet Balance</p>
-              <CreditCard className="h-4 w-4 text-primary opacity-50" />
-            </div>
-            <div className="text-2xl font-bold text-foreground">{displayCurrency(profile?.walletBalance || 0)}</div>
-            <p className="text-[11px] text-muted-foreground font-medium mt-1">Available for transfers</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border shadow-sm rounded-xl">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Monthly Income</p>
-              <ArrowUpRight className="h-4 w-4 text-emerald-500 opacity-50" />
-            </div>
-            <div className="text-2xl font-bold text-foreground">{displayCurrency(monthlyIncome)}</div>
-            <p className="text-[11px] text-emerald-500 font-medium mt-1">On track</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border shadow-sm rounded-xl">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Monthly Expenses</p>
-              <ArrowDownLeft className="h-4 w-4 text-rose-500 opacity-50" />
-            </div>
-            <div className="text-2xl font-bold text-foreground">{displayCurrency(monthlyExpense)}</div>
-            <p className="text-[11px] text-rose-500 font-medium mt-1">8% higher than average</p>
-          </CardContent>
-        </Card>
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="space-y-10 pb-12"
+    >
+      {/* Hero Welcome */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white">
+            Hello, {profile?.name?.split(' ')[0]} <span className="inline-block animate-bounce ml-1">👋</span>
+          </h2>
+          <p className="text-slate-500 font-medium mt-1">Here's what's happening with your cash flow today.</p>
+        </div>
+        <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="bg-emerald-50 dark:bg-emerald-500/10 p-2 rounded-xl">
+            <Zap className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div className="pr-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Assets</p>
+            <p className="text-lg font-bold text-slate-900 dark:text-white leading-none">{displayCurrency(totalBalance + (profile?.walletBalance || 0))}</p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
-        {/* Bar Chart */}
-        <Card className="xl:col-span-2 border-border shadow-sm rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-semibold text-foreground">Spending Overview</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <div className="h-2 w-2 rounded-full bg-primary/20" />
-                <span className="text-[10px] text-muted-foreground">Income</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="h-2 w-2 rounded-full bg-primary" />
-                <span className="text-[10px] text-muted-foreground">Expense</span>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px] md:h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barChartData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickFormatter={(val) => `$${val}`} />
-                  <Tooltip 
-                    cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
-                    contentStyle={{ 
-                      backgroundColor: 'var(--card)', 
-                      borderRadius: '8px', 
-                      border: '1px solid var(--border)', 
-                      boxShadow: 'none',
-                      fontSize: '12px'
-                    }}
-                  />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40}>
-                    {barChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.name === 'Income' ? 'var(--primary-foreground)' : 'var(--primary)'} stroke="var(--primary)" strokeWidth={entry.name === 'Income' ? 1 : 0} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pie Chart */}
-        <Card className="border-border shadow-sm rounded-xl">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold text-foreground">Top Categories</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px] md:h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <RePieChart>
-                  <Pie
-                    data={pieChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'var(--card)', 
-                      borderRadius: '8px', 
-                      border: '1px solid var(--border)', 
-                      boxShadow: 'none',
-                      fontSize: '12px'
-                    }}
-                  />
-                </RePieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 space-y-2">
-              {pieChartData.map((item, index) => (
-                <div key={item.name} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                    <span className="text-muted-foreground">{item.name}</span>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { label: 'Total Balance', value: totalBalance, icon: Wallet, color: 'text-blue-600', bg: 'bg-blue-50', trend: '+2.4%', trendUp: true },
+          { label: 'Wallet Credit', value: profile?.walletBalance || 0, icon: CreditCard, color: 'text-purple-600', bg: 'bg-purple-50' },
+          { label: 'Monthly Income', value: monthlyIncome, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Monthly Spent', value: monthlyExpense, icon: TrendingDown, color: 'text-rose-600', bg: 'bg-rose-50', trend: '+8%' }
+        ].map((stat, i) => (
+          <motion.div key={i} variants={itemVariants}>
+            <Card className="border-none shadow-xl shadow-slate-200/40 dark:shadow-none dark:border dark:border-slate-800 rounded-3xl group transition-all hover:scale-[1.02]">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={cn("p-3 rounded-2xl", stat.bg)}>
+                    <stat.icon className={cn("h-6 w-6", stat.color)} />
                   </div>
-                  <span className="font-medium text-foreground">{formatCurrency(item.value, profile?.currency)}</span>
+                  {stat.trend && (
+                    <Badge variant={stat.trendUp ? "outline" : "outline"} className={cn(
+                      "rounded-lg border-none font-bold text-xs",
+                      stat.trendUp ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                    )}>
+                      {stat.trend}
+                    </Badge>
+                  )}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{stat.label}</p>
+                <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">{displayCurrency(stat.value)}</h3>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
 
-        {/* Recent Transactions */}
-        <Card className="xl:col-span-3 border-border shadow-sm rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-semibold text-foreground">Recent Transactions</CardTitle>
-            <button className="text-xs text-primary font-medium hover:underline">View All</button>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-              {transactions.length === 0 ? (
-                <div className="col-span-2 text-center py-12 text-muted-foreground italic text-sm">No transactions yet</div>
-              ) : (
-                transactions.slice(0, 8).map((t) => (
-                  <div key={t.id} className="flex items-center justify-between py-3 border-b border-border/50 last:border-0 md:last:border-b">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Chart */}
+        <motion.div variants={itemVariants} className="lg:col-span-2">
+          <Card className="border-none shadow-xl shadow-slate-200/40 dark:shadow-none dark:border dark:border-slate-800 rounded-3xl h-full">
+            <CardHeader className="flex flex-row items-center justify-between pb-8">
+              <div>
+                <CardTitle className="text-xl font-black tracking-tight">Spending Flow</CardTitle>
+                <p className="text-sm text-slate-500 font-medium mt-1">Daily expense tracking for the last 7 days</p>
+              </div>
+              <Activity className="h-5 w-5 text-slate-300" />
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={areaData}>
+                    <defs>
+                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 600 }} 
+                      dy={10}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 600 }} 
+                      tickFormatter={(val) => `$${val}`} 
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'var(--card)', 
+                        borderRadius: '16px', 
+                        border: 'none', 
+                        boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                        padding: '12px'
+                      }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke="var(--primary)" 
+                      strokeWidth={4}
+                      fillOpacity={1} 
+                      fill="url(#colorValue)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Categories */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-none shadow-xl shadow-slate-200/40 dark:shadow-none dark:border dark:border-slate-800 rounded-3xl h-full">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl font-black tracking-tight tracking-tight">Category Mix</CardTitle>
+              <p className="text-sm text-slate-500 font-medium">Where your money goes</p>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RePieChart>
+                    <Pie
+                      data={pieChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {pieChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        borderRadius: '16px', 
+                        border: 'none', 
+                        boxShadow: 'var(--shadow-xl)',
+                        fontSize: '12px'
+                      }}
+                    />
+                  </RePieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-6 space-y-3">
+                {pieChartData.map((item, index) => (
+                  <div key={item.name} className="flex items-center justify-between group">
                     <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "h-8 w-8 rounded-lg flex items-center justify-center",
-                        t.type === 'income' ? "bg-emerald-500/10 text-emerald-500" : "bg-primary/10 text-primary"
-                      )}>
-                        {t.type === 'income' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
-                      </div>
-                      <div className="flex flex-col">
-                        <p className="text-sm font-medium text-foreground">{t.title}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold uppercase tracking-tight">
-                            {t.category}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">{format(t.date.toDate(), 'MMM d')}</span>
+                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{item.name}</span>
+                    </div>
+                    <span className="text-sm font-black text-slate-900 dark:text-white">{displayCurrency(item.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Recent Activity */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-none shadow-xl shadow-slate-200/40 dark:shadow-none dark:border dark:border-slate-800 rounded-3xl">
+            <CardHeader className="flex flex-row items-center justify-between pb-6">
+              <div>
+                <CardTitle className="text-xl font-black tracking-tight">Recent Activity</CardTitle>
+                <p className="text-sm text-slate-500 font-medium">Last 5 operations</p>
+              </div>
+              <Button variant="ghost" size="sm" className="text-primary font-black uppercase tracking-widest text-[10px] h-8 px-3">
+                View All <ChevronRight className="ml-1 h-3 w-3" />
+              </Button>
+            </CardHeader>
+            <CardContent className="px-2">
+              <div className="space-y-1">
+                {transactions.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 italic font-medium">No transactions yet</div>
+                ) : (
+                  transactions.slice(0, 5).map((t) => (
+                    <div key={t.id} className="flex items-center justify-between px-4 py-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "h-12 w-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110",
+                          t.type === 'income' ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                        )}>
+                          {t.type === 'income' ? <ArrowUpRight className="h-6 w-6" /> : <ArrowDownLeft className="h-6 w-6" />}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 dark:text-white">{t.title}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t.category}</span>
+                            <span className="h-1 w-1 bg-slate-300 rounded-full" />
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{format(t.date.toDate(), 'MMM d')}</span>
+                          </div>
                         </div>
                       </div>
+                      <p className={cn(
+                        "text-lg font-black tabular-nums tracking-tighter",
+                        t.type === 'income' ? "text-emerald-600" : "text-slate-900 dark:text-white"
+                      )}>
+                        {t.type === 'income' ? '+' : '-'}{displayCurrency(t.amount)}
+                      </p>
                     </div>
-                    <div className={cn(
-                      "text-sm font-bold",
-                      t.type === 'income' ? "text-emerald-500" : "text-foreground"
-                    )}>
-                      {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount, profile?.currency)}
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Upcoming Bills */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-none shadow-xl shadow-slate-200/40 dark:shadow-none dark:border dark:border-slate-800 rounded-3xl h-full">
+            <CardHeader className="flex flex-row items-center justify-between pb-6">
+              <div>
+                <CardTitle className="text-xl font-black tracking-tight">Upcoming Payments</CardTitle>
+                <p className="text-sm text-slate-500 font-medium">Bills due soon</p>
+              </div>
+              <Clock className="h-5 w-5 text-slate-300" />
+            </CardHeader>
+            <CardContent className="px-2">
+              <div className="space-y-1">
+                {bills.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 italic font-medium">No upcoming bills</div>
+                ) : (
+                  bills.slice(0, 5).map((b) => (
+                    <div key={b.id} className="flex items-center justify-between px-4 py-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                      <div className="flex items-center gap-4 text-left">
+                        <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500">
+                          <DollarSign className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 dark:text-white">{b.title}</p>
+                          <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-1 mt-0.5">
+                            <Clock className="h-3 w-3" /> Due {format(b.dueDate.toDate(), 'MMM d')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-black text-slate-900 dark:text-white tabular-nums tracking-tighter">{displayCurrency(b.amount)}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{b.frequency}</p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))
+                )}
+              </div>
+              {bills.length > 5 && (
+                <div className="p-4 text-center">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">+{bills.length - 5} more pending bills</p>
+                </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
