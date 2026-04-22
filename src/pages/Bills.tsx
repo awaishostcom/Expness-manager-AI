@@ -94,8 +94,13 @@ export const Bills: React.FC = () => {
       }
       setIsDialogOpen(false);
       resetForm();
-    } catch (error) {
-      toast.error('Failed to save bill');
+    } catch (error: any) {
+      console.error('Save Bill Error:', error);
+      try {
+        handleFirestoreError(error, editingBill ? OperationType.UPDATE : OperationType.CREATE, `users/${user.uid}/bills`);
+      } catch (e: any) {
+        toast.error('Failed to save bill: ' + e.message);
+      }
     } finally {
       setLoading(false);
     }

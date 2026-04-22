@@ -69,8 +69,13 @@ export const Staff: React.FC = () => {
       }
       setIsDialogOpen(false);
       resetForm();
-    } catch (error) {
-      toast.error('Failed to save staff');
+    } catch (error: any) {
+      console.error('Save Staff Error:', error);
+      try {
+        handleFirestoreError(error, editingStaff ? OperationType.UPDATE : OperationType.CREATE, `users/${user.uid}/staff`);
+      } catch (e: any) {
+        toast.error('Failed to save staff: ' + e.message);
+      }
     } finally {
       setLoading(false);
     }

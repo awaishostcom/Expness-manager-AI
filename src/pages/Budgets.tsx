@@ -97,8 +97,13 @@ export const Budgets: React.FC = () => {
       }
       setIsDialogOpen(false);
       resetForm();
-    } catch (error) {
-      toast.error('Failed to save budget');
+    } catch (error: any) {
+      console.error('Save Budget Error:', error);
+      try {
+        handleFirestoreError(error, editingBudget ? OperationType.UPDATE : OperationType.CREATE, `users/${user.uid}/budgets`);
+      } catch (e: any) {
+        toast.error('Failed to save budget: ' + e.message);
+      }
     } finally {
       setLoading(false);
     }

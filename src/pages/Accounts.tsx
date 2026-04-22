@@ -109,7 +109,12 @@ export const Accounts: React.FC = () => {
       setIsDialogOpen(false);
       resetForm();
     } catch (error: any) {
-      toast.error('Failed to save account');
+      console.error('Save Account Error:', error);
+      try {
+        handleFirestoreError(error, editingAccount ? OperationType.UPDATE : OperationType.CREATE, `users/${user.uid}/accounts`);
+      } catch (e: any) {
+        toast.error('Failed to save account: ' + e.message);
+      }
     } finally {
       setLoading(false);
     }

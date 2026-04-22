@@ -134,7 +134,12 @@ export const Expenses: React.FC = () => {
       setIsDialogOpen(false);
       resetForm();
     } catch (error: any) {
-      toast.error('Failed to save expense: ' + error.message);
+      console.error('Save Expense Error:', error);
+      try {
+        handleFirestoreError(error, editingTransaction ? OperationType.UPDATE : OperationType.CREATE, `users/${user.uid}/transactions`);
+      } catch (e: any) {
+        toast.error('Failed to save expense: ' + e.message);
+      }
     } finally {
       setLoading(false);
     }

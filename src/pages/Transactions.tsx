@@ -139,7 +139,12 @@ export const Transactions: React.FC = () => {
       setIsDialogOpen(false);
       resetForm();
     } catch (error: any) {
-      toast.error('Failed to save transaction: ' + error.message);
+      console.error('Save Transaction Error:', error);
+      try {
+        handleFirestoreError(error, editingTransaction ? OperationType.UPDATE : OperationType.CREATE, `users/${user.uid}/transactions`);
+      } catch (e: any) {
+        toast.error('Failed to save transaction: ' + e.message);
+      }
     } finally {
       setLoading(false);
     }

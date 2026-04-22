@@ -9,7 +9,7 @@ export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 });
 
-console.log("Firebase initialized with long polling");
+console.log("Firebase initialized with long polling enabled for stability");
 
 export enum OperationType {
   CREATE = 'create',

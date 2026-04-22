@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, runTransaction, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, runTransaction, Timestamp, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { WalletTransfer, UserProfile } from '../types';
@@ -53,46 +53,55 @@ export const Wallet: React.FC = () => {
     try {
       // Find recipient by email
       const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', recipientEmail));
-      const recipientSnapshot = await onSnapshot(q, async (snapshot) => {
-        if (snapshot.empty) {
-          toast.error('Recipient not found');
-          setLoading(false);
-          return;
+      const qUsers = query(usersRef, where('email', '==', recipientEmail));
+      const recipientSnapshot = await getDocs(qUsers);
+      
+      if (recipientSnapshot.empty) {
+        toast.error('Recipient not found');
+        setLoading(false);
+        return;
+      }
+
+      const recipientDoc = recipientSnapshot.docs[0];
+      const recipientData = recipientDoc.data() as UserProfile;
+
+      await runTransaction(db, async (transaction) => {
+        const senderRef = doc(db, 'users', user.uid);
+        const recipientRef = doc(db, 'users', recipientDoc.id);
+
+        const senderDoc = await transaction.get(senderRef);
+        if (!senderDoc.exists()) throw new Error("Sender profile not found");
+        const currentBalance = senderDoc.data().walletBalance || 0;
+
+        if (currentBalance < totalDeduction) {
+          throw new Error('Insufficient wallet balance');
         }
 
-        const recipientDoc = snapshot.docs[0];
-        const recipientData = recipientDoc.data() as UserProfile;
-
-        await runTransaction(db, async (transaction) => {
-          const senderRef = doc(db, 'users', user.uid);
-          const recipientRef = doc(db, 'users', recipientDoc.id);
-
-          transaction.update(senderRef, {
-            walletBalance: profile.walletBalance - totalDeduction
-          });
-
-          transaction.update(recipientRef, {
-            walletBalance: recipientData.walletBalance + sendAmount
-          });
-
-          const transferRef = doc(collection(db, 'walletTransfers'));
-          transaction.set(transferRef, {
-            fromUid: user.uid,
-            toUid: recipientDoc.id,
-            amount: sendAmount,
-            fee: fee,
-            date: Timestamp.now()
-          });
+        transaction.update(senderRef, {
+          walletBalance: currentBalance - totalDeduction
         });
 
-        toast.success('Money sent successfully');
-        setIsSendDialogOpen(false);
-        setAmount('');
-        setRecipientEmail('');
+        transaction.update(recipientRef, {
+          walletBalance: (recipientData.walletBalance || 0) + sendAmount
+        });
+
+        const transferRef = doc(collection(db, 'walletTransfers'));
+        transaction.set(transferRef, {
+          fromUid: user.uid,
+          toUid: recipientDoc.id,
+          amount: sendAmount,
+          fee: fee,
+          date: Timestamp.now()
+        });
       });
-    } catch (error) {
-      toast.error('Transfer failed');
+
+      toast.success('Money sent successfully');
+      setIsSendDialogOpen(false);
+      setAmount('');
+      setRecipientEmail('');
+    } catch (error: any) {
+      console.error('Transfer Error:', error);
+      toast.error('Transfer failed: ' + error.message);
     } finally {
       setLoading(false);
     }

@@ -50,7 +50,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (error) {
           console.error("Auth profile error:", error);
-          // Don't throw here - we must proceed to set isAuthReady(true)
+          // Log standardized error but don't re-throw here to avoid blocking app initialization
+          try {
+            handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+          } catch (reportingError) {
+            // Error is already logged to console by handleFirestoreError
+          }
         }
       } else {
         setProfile(null);

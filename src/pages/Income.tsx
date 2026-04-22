@@ -134,7 +134,12 @@ export const Income: React.FC = () => {
       setIsDialogOpen(false);
       resetForm();
     } catch (error: any) {
-      toast.error('Failed to save income: ' + error.message);
+      console.error('Save Income Error:', error);
+      try {
+        handleFirestoreError(error, editingTransaction ? OperationType.UPDATE : OperationType.CREATE, `users/${user.uid}/transactions`);
+      } catch (e: any) {
+        toast.error('Failed to save income: ' + e.message);
+      }
     } finally {
       setLoading(false);
     }

@@ -76,8 +76,13 @@ export const Ledger: React.FC = () => {
       setClientName('');
       setClientPhone('');
       setClientEmail('');
-    } catch (error) {
-      toast.error('Failed to add client');
+    } catch (error: any) {
+      console.error('Add Client Error:', error);
+      try {
+        handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/clients`);
+      } catch (e: any) {
+        toast.error('Failed to add client: ' + e.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -100,8 +105,13 @@ export const Ledger: React.FC = () => {
       setIsEntryDialogOpen(false);
       setAmount('');
       setDescription('');
-    } catch (error) {
-      toast.error('Failed to add entry');
+    } catch (error: any) {
+      console.error('Add Ledger Entry Error:', error);
+      try {
+        handleFirestoreError(error, OperationType.CREATE, `users/${user.uid}/ledger`);
+      } catch (e: any) {
+        toast.error('Failed to add entry: ' + e.message);
+      }
     } finally {
       setLoading(false);
     }

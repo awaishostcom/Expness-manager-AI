@@ -1,20 +1,38 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Expense Manager Pro
 
-# Run and deploy your AI Studio app
+Comprehensive expense management system built with React, Vite, Tailwind CSS, and Firebase.
 
-This contains everything you need to run your app locally.
+## Deployment to GitHub Pages
 
-View your app in AI Studio: https://ai.studio/apps/64f5fee7-65ef-4848-890f-34774f69a47d
+The "white screen" issue happens because GitHub Pages serves static files and does not automatically compile `.tsx` (TypeScript React) files.
 
-## Run Locally
+### 1. Automatic Deployment
+I have added a GitHub Action in `.github/workflows/deploy.yml`. When you push your code to the `main` branch, it will automatically build and deploy your app.
 
-**Prerequisites:**  Node.js
+**To enable this:**
+1. Go to your GitHub Repository.
+2. Click on **Settings** -> **Pages**.
+3. Under **Build and deployment** -> **Source**, select **GitHub Actions**.
 
+### 2. Firebase Configuration (CRITICAL)
+Your app will show a white screen or fail to log in if your GitHub Pages domain is not authorized in Firebase.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. Go to your [Firebase Console](https://console.firebase.google.com/).
+2. Select your project.
+3. Go to **Authentication** -> **Settings** -> **Authorized domains**.
+4. Click **Add domain** and add your GitHub Pages domain:
+   - Example: `yourusername.github.io`
+   - (Optional) Also add `yourusername.github.io/repo-name` if it's in a subfolder.
+
+### 3. Environment Variables
+If your app uses a Gemini API key or other secrets, you need to add them to GitHub:
+1. Go to **Settings** -> **Secrets and variables** -> **Actions**.
+2. Add a **New repository secret** called `GEMINI_API_KEY`.
+
+## Features
+- Real-time expense and income tracking.
+- Multi-account support (Bank, Cash, Wallet).
+- Budget limits and tracking.
+- Business management (Clients, Staff, Ledger).
+- Export to PDF and Excel.
+- Light/Dark mode.
